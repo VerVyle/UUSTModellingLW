@@ -200,7 +200,7 @@ fun Main(
                                         PoissonDistribution(mean)
                                             .cumulativeProbability(lowerBound))
                     }
-                    // TODO: Fix
+                    // FIXME: try dif formula 
                     val expectedFreq2 =
                         DoubleArray(observedFreq.size) { observedFreq.size.toDouble() }
                     for (i in expectedFreq2.indices.filter { it != expectedFreq.size - 1 }) {
