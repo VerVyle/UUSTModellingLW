@@ -19,6 +19,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.vervyle.lab1.ui.theme.UUSTModellingLWTheme
 import org.apache.commons.math3.distribution.ExponentialDistribution
 import org.apache.commons.math3.distribution.PoissonDistribution
+import org.apache.commons.math3.util.BigReal
+import java.math.BigDecimal
 import kotlin.math.exp
 import kotlin.math.floor
 import kotlin.math.log
@@ -44,7 +46,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-const val LIST_SIZE = 100
+const val LIST_SIZE = 1000
 
 @Composable
 fun Main(
@@ -111,7 +113,7 @@ fun Main(
                         }
                     }
                     val expectedFreq =
-                        DoubleArray(observedFreq.size) { observedFreq.size.toDouble() }
+                        DoubleArray(observedFreq.size) { 0.0 }
                     for (i in expectedFreq.indices.filter { it != expectedFreq.size - 1 }) {
                         val lowerBound = bins[i]
                         val upperBound = bins[i + 1]
@@ -122,7 +124,7 @@ fun Main(
                                             .cumulativeProbability(lowerBound))
                     }
                     val expectedFreq2 =
-                        DoubleArray(observedFreq.size) { observedFreq.size.toDouble() }
+                        DoubleArray(observedFreq.size) { 0.0 }
                     for (i in expectedFreq2.indices.filter { it != expectedFreq.size - 1 }) {
                         expectedFreq2[i] = exponentialList.size *
                                 (1.0.minus(exp(-1.0 * bins[i + 1] / mean)))
@@ -178,7 +180,7 @@ fun Main(
                         }
                         sum / poissonList.size
                     }
-                    val lambda = 1.0 / mean
+                    val lambda = mean
                     val observedFreq = MutableList(k) {
                         0
                     }
@@ -190,7 +192,7 @@ fun Main(
                         }
                     }
                     val expectedFreq =
-                        DoubleArray(observedFreq.size) { observedFreq.size.toDouble() }
+                        DoubleArray(observedFreq.size) { 0.0 }
                     for (i in expectedFreq.indices.filter { it != expectedFreq.size - 1 }) {
                         val lowerBound = bins[i]
                         val upperBound = bins[i + 1]
@@ -202,15 +204,26 @@ fun Main(
                     }
                     // FIXME: try dif formula 
                     val expectedFreq2 =
-                        DoubleArray(observedFreq.size) { observedFreq.size.toDouble() }
+                        DoubleArray(observedFreq.size) { 0.0 }
                     for (i in expectedFreq2.indices.filter { it != expectedFreq.size - 1 }) {
-                        expectedFreq2[i] =
-                            lambda.pow(i.toDouble()) * exp(-1.0 * lambda) / factorial(i) * exponentialList.size
+                        expectedFreq2[i] = run {
+                            var expected = 0.0
+                            for (j in bins[i]..<bins[i + 1]) {
+                                expected += lambda.pow(j) * exp(-1.0 * lambda) / factorial(j) * exponentialList.size
+                            }
+                            expected
+                        }
                     }
+                    Log.d(
+                        "Prob", "${
+                            lambda.pow(13) * exp(-1.0 * lambda) / factorial(13) * exponentialList.size +
+                                    lambda.pow(14) * exp(-1.0 * lambda) / factorial(14) * exponentialList.size
+                        }"
+                    )
                     "bins: ${bins.map { it.toString() }} \n"
                         .plus("observedFreq: ${observedFreq.map { it.toString() }} \n")
                         .plus("expectedFreq: ${expectedFreq.map { it.toString() }} \n")
-                        //.plus("expectedFreqMy: ${expectedFreq2.map { it.toString() }} \n")
+                        .plus("expectedFreqMy: ${expectedFreq2.map { it.toString() }} \n")
                 },
                 modifier = modifier
             )
