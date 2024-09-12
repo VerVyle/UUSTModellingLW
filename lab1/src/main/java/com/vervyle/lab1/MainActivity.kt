@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -47,6 +48,8 @@ class MainActivity : ComponentActivity() {
 }
 
 const val LIST_SIZE = 1000
+
+const val TAG = "lab1"
 
 @Composable
 fun Main(
@@ -131,8 +134,19 @@ fun Main(
                     }
                     "bins: ${bins.map { it.toString() }} \n"
                         .plus("observedFreq: ${observedFreq.map { it.toString() }} \n")
-                        .plus("expectedFreq: ${expectedFreq.map { it.toString() }} \n")
-                        .plus("expectedFreqMy: ${expectedFreq2.map { it.toString() }} \n")
+                        .plus("expectedFreq (Library): ${expectedFreq.map { it.toString() }} \n")
+                        .plus(
+                            "expectedFreq (Mine impl): ${
+                                expectedFreq2.mapIndexed { index, it ->
+                                    if (index == 0)
+                                        it.toString()
+                                    else if (index == expectedFreq2.size - 1)
+                                        it.toString()
+                                    else
+                                        (it - expectedFreq2[index - 1]).toString()
+                                }
+                            } \n"
+                        )
                 },
                 modifier = modifier
             )
@@ -202,7 +216,6 @@ fun Main(
                                         PoissonDistribution(mean)
                                             .cumulativeProbability(lowerBound))
                     }
-                    // FIXME: try dif formula 
                     val expectedFreq2 =
                         DoubleArray(observedFreq.size) { 0.0 }
                     for (i in expectedFreq2.indices.filter { it != expectedFreq.size - 1 }) {
@@ -214,16 +227,10 @@ fun Main(
                             expected
                         }
                     }
-                    Log.d(
-                        "Prob", "${
-                            lambda.pow(13) * exp(-1.0 * lambda) / factorial(13) * exponentialList.size +
-                                    lambda.pow(14) * exp(-1.0 * lambda) / factorial(14) * exponentialList.size
-                        }"
-                    )
                     "bins: ${bins.map { it.toString() }} \n"
                         .plus("observedFreq: ${observedFreq.map { it.toString() }} \n")
-                        .plus("expectedFreq: ${expectedFreq.map { it.toString() }} \n")
-                        .plus("expectedFreqMy: ${expectedFreq2.map { it.toString() }} \n")
+                        .plus("expectedFreq (Library): ${expectedFreq.map { it.toString() }} \n")
+                        .plus("expectedFreq (Mine impl): ${expectedFreq2.map { it.toString() }} \n")
                 },
                 modifier = modifier
             )
@@ -231,20 +238,12 @@ fun Main(
     }
 }
 
-fun factorial(int: Int): Int {
-    var fac = 1
+private fun factorial(int: Int): Long {
+    var fac = 1L
     var buf = 1
     while (buf < int) {
         fac *= buf + 1
         buf++
     }
     return fac
-}
-
-@Preview(showBackground = true)
-@Composable
-fun MainPreview() {
-    UUSTModellingLWTheme {
-        Main(MainViewModel())
-    }
 }
