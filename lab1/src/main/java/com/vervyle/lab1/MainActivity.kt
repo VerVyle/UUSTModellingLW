@@ -1,13 +1,11 @@
 package com.vervyle.lab1
 
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.View
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,9 +16,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.viewinterop.AndroidView
-import com.github.mikephil.charting.charts.BarChart
 import com.vervyle.lab1.ui.theme.UUSTModellingLWTheme
+import org.apache.commons.math3.distribution.ExponentialDistribution
+import org.apache.commons.math3.distribution.PoissonDistribution
+import kotlin.math.exp
+import kotlin.math.floor
+import kotlin.math.log
+import kotlin.math.pow
 
 class MainActivity : ComponentActivity() {
 
@@ -42,7 +44,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-const val LIST_SIZE = 10
+const val LIST_SIZE = 100
 
 @Composable
 fun Main(
@@ -54,8 +56,9 @@ fun Main(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        viewModel.generator.lambda = 10F
+        viewModel.generator.lambda = 10f
         val poissonList = List(LIST_SIZE) { viewModel.getPoisson() }
+        viewModel.generator.lambda = 0.1f
         val exponentialList = List(LIST_SIZE) { viewModel.getExpVal() }
         item {
             Text(
@@ -86,20 +89,51 @@ fun Main(
             )
             Text(
                 text = run {
-                    // TODO: create test for sample
-                    "Testing the sample"
+                    val k = floor(1 + log(LIST_SIZE.toDouble(), 2.0)).toInt()
+                    val bins = List(k) { index ->
+                        index * exponentialList.max() / k
+                    }
+                    val mean = run {
+                        var sum: Double = 0.0
+                        exponentialList.forEach {
+                            sum += it
+                        }
+                        sum / exponentialList.size
+                    }
+                    val observedFreq = MutableList(k) {
+                        0
+                    }
+                    exponentialList.forEach { expVal ->
+                        bins.indices.filter { it != k - 1 }.forEach { index ->
+                            if (expVal >= bins[index] && expVal < bins[index + 1]) {
+                                observedFreq[index]++
+                            }
+                        }
+                    }
+                    val expectedFreq =
+                        DoubleArray(observedFreq.size) { observedFreq.size.toDouble() }
+                    for (i in expectedFreq.indices.filter { it != expectedFreq.size - 1 }) {
+                        val lowerBound = bins[i]
+                        val upperBound = bins[i + 1]
+                        expectedFreq[i] = exponentialList.size *
+                                (ExponentialDistribution(mean)
+                                    .cumulativeProbability(upperBound) -
+                                        ExponentialDistribution(mean)
+                                            .cumulativeProbability(lowerBound))
+                    }
+                    val expectedFreq2 =
+                        DoubleArray(observedFreq.size) { observedFreq.size.toDouble() }
+                    for (i in expectedFreq2.indices.filter { it != expectedFreq.size - 1 }) {
+                        expectedFreq2[i] = exponentialList.size *
+                                (1.0.minus(exp(-1.0 * bins[i + 1] / mean)))
+                    }
+                    "bins: ${bins.map { it.toString() }} \n"
+                        .plus("observedFreq: ${observedFreq.map { it.toString() }} \n")
+                        .plus("expectedFreq: ${expectedFreq.map { it.toString() }} \n")
+                        .plus("expectedFreqMy: ${expectedFreq2.map { it.toString() }} \n")
                 },
                 modifier = modifier
             )
-//            AndroidView(
-//                factory = { context ->
-//                    val view = LayoutInflater
-//                        .from(context)
-//                        .inflate(R.layout.barchart, null, false) as BarChart
-//
-//                    view
-//                },
-//            )
         }
         item {
             HorizontalDivider()
@@ -132,14 +166,66 @@ fun Main(
                 modifier = modifier
             )
             Text(
-                    text = run {
-                        // TODO: create test for sample
-                        "Testing the sample"
-                    },
-            modifier = modifier
+                text = run {
+                    val k = floor(1 + log(LIST_SIZE.toDouble(), 2.0)).toInt()
+                    val bins = List(k) { index ->
+                        index * poissonList.max() / k
+                    }
+                    val mean = run {
+                        var sum: Double = 0.0
+                        poissonList.forEach {
+                            sum += it
+                        }
+                        sum / poissonList.size
+                    }
+                    val lambda = 1.0 / mean
+                    val observedFreq = MutableList(k) {
+                        0
+                    }
+                    poissonList.forEach { poissonVal ->
+                        bins.indices.filter { it != k - 1 }.forEach { index ->
+                            if (poissonVal >= bins[index] && poissonVal < bins[index + 1]) {
+                                observedFreq[index]++
+                            }
+                        }
+                    }
+                    val expectedFreq =
+                        DoubleArray(observedFreq.size) { observedFreq.size.toDouble() }
+                    for (i in expectedFreq.indices.filter { it != expectedFreq.size - 1 }) {
+                        val lowerBound = bins[i]
+                        val upperBound = bins[i + 1]
+                        expectedFreq[i] = exponentialList.size *
+                                (PoissonDistribution(mean)
+                                    .cumulativeProbability(upperBound) -
+                                        PoissonDistribution(mean)
+                                            .cumulativeProbability(lowerBound))
+                    }
+                    // TODO: Fix
+                    val expectedFreq2 =
+                        DoubleArray(observedFreq.size) { observedFreq.size.toDouble() }
+                    for (i in expectedFreq2.indices.filter { it != expectedFreq.size - 1 }) {
+                        expectedFreq2[i] =
+                            lambda.pow(i.toDouble()) * exp(-1.0 * lambda) / factorial(i) * exponentialList.size
+                    }
+                    "bins: ${bins.map { it.toString() }} \n"
+                        .plus("observedFreq: ${observedFreq.map { it.toString() }} \n")
+                        .plus("expectedFreq: ${expectedFreq.map { it.toString() }} \n")
+                        //.plus("expectedFreqMy: ${expectedFreq2.map { it.toString() }} \n")
+                },
+                modifier = modifier
             )
         }
     }
+}
+
+fun factorial(int: Int): Int {
+    var fac = 1
+    var buf = 1
+    while (buf < int) {
+        fac *= buf + 1
+        buf++
+    }
+    return fac
 }
 
 @Preview(showBackground = true)

@@ -33,6 +33,6 @@ class Generator {
 
     companion object {
         const val SEED = 0
-        const val DEFAULT_LAMBDA = 1F
+        const val DEFAULT_LAMBDA = 1f
     }
 }
