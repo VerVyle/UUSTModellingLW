@@ -21,11 +21,13 @@ import com.vervyle.lab1.ui.theme.UUSTModellingLWTheme
 import org.apache.commons.math3.distribution.ExponentialDistribution
 import org.apache.commons.math3.distribution.PoissonDistribution
 import org.apache.commons.math3.util.BigReal
+import java.lang.Math.pow
 import java.math.BigDecimal
 import kotlin.math.exp
 import kotlin.math.floor
 import kotlin.math.log
 import kotlin.math.pow
+import kotlin.math.sqrt
 
 class MainActivity : ComponentActivity() {
 
@@ -38,8 +40,7 @@ class MainActivity : ComponentActivity() {
             UUSTModellingLWTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Main(
-                        viewModel = viewModel,
-                        modifier = Modifier.padding(innerPadding)
+                        viewModel = viewModel, modifier = Modifier.padding(innerPadding)
                     )
                 }
             }
@@ -47,14 +48,13 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-const val LIST_SIZE = 1000
+const val LIST_SIZE = 100
 
 const val TAG = "lab1"
 
 @Composable
 fun Main(
-    viewModel: MainViewModel,
-    modifier: Modifier = Modifier
+    viewModel: MainViewModel, modifier: Modifier = Modifier
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -68,10 +68,8 @@ fun Main(
         item {
             Text(
                 text = run {
-                    "random exponential value generation (lambda = " +
-                            "${viewModel.generator.lambda})"
-                },
-                modifier = modifier
+                    "random exponential value generation\n"
+                }, modifier = modifier
             )
             Text(
                 text = run {
@@ -80,17 +78,10 @@ fun Main(
                         mean += it
                     }
                     mean /= exponentialList.size
-                    "generated list is "
-                        .plus(
-                            exponentialList.map { it.toString() }.toString()
-                        )
-                        .plus("\n mean is ").plus(mean)
-                        .plus(
-                            "\n with lambda equal " +
-                                    "${viewModel.generator.lambda}"
-                        )
-                },
-                modifier = modifier
+                    "mean is ".plus(mean).plus(
+                        "\n with lambda equal " + "${viewModel.generator.lambda} \n"
+                    )
+                }, modifier = modifier
             )
             Text(
                 text = run {
@@ -109,46 +100,87 @@ fun Main(
                         0
                     }
                     exponentialList.forEach { expVal ->
-                        bins.indices.filter { it != k - 1 }.forEach { index ->
-                            if (expVal >= bins[index] && expVal < bins[index + 1]) {
+                        bins.indices.forEach { index ->
+                            if (index == bins.size - 1) {
+                                if (expVal >= bins[index]) {
+                                    observedFreq[index]++
+                                }
+                            } else if (expVal >= bins[index] && expVal < bins[index + 1]) {
                                 observedFreq[index]++
                             }
                         }
                     }
-                    val expectedFreq =
-                        DoubleArray(observedFreq.size) { 0.0 }
-                    for (i in expectedFreq.indices.filter { it != expectedFreq.size - 1 }) {
+                    val expectedFreq = DoubleArray(observedFreq.size) { 0.0 }
+                    for (i in expectedFreq.indices) {
                         val lowerBound = bins[i]
-                        val upperBound = bins[i + 1]
-                        expectedFreq[i] = exponentialList.size *
-                                (ExponentialDistribution(mean)
-                                    .cumulativeProbability(upperBound) -
-                                        ExponentialDistribution(mean)
-                                            .cumulativeProbability(lowerBound))
+                        val upperBound =
+                            if (i != expectedFreq.size - 1) bins[i + 1] else exponentialList.max()
+                        expectedFreq[i] =
+                            exponentialList.size * (ExponentialDistribution(mean).cumulativeProbability(
+                                upperBound
+                            ) - ExponentialDistribution(mean).cumulativeProbability(lowerBound))
                     }
-                    val expectedFreq2 =
-                        DoubleArray(observedFreq.size) { 0.0 }
-                    for (i in expectedFreq2.indices.filter { it != expectedFreq.size - 1 }) {
-                        expectedFreq2[i] = exponentialList.size *
-                                (1.0.minus(exp(-1.0 * bins[i + 1] / mean)))
+                    var expectedFreq2 = DoubleArray(observedFreq.size) { 0.0 }
+                    for (i in expectedFreq2.indices) {
+                        if (i == expectedFreq2.size - 1) {
+                            expectedFreq2[i] =
+                                exponentialList.size * (1.0.minus(exp(-1.0 * exponentialList.max() / mean)))
+                        } else {
+                            expectedFreq2[i] =
+                                exponentialList.size * (1.0.minus(exp(-1.0 * bins[i + 1] / mean)))
+                        }
                     }
-                    "bins: ${bins.map { it.toString() }} \n"
-                        .plus("observedFreq: ${observedFreq.map { it.toString() }} \n")
-                        .plus("expectedFreq (Library): ${expectedFreq.map { it.toString() }} \n")
+                    var pAlpha = 0.0
+                    expectedFreq2 = expectedFreq2.mapIndexed { index, freq ->
+                        if (index == 0)
+                            freq
+                        else
+                            freq - expectedFreq2[index - 1]
+                    }.toDoubleArray()
+                    for (i in 0..expectedFreq2.size - 1) {
+                        pAlpha += (pow(
+                            expectedFreq2[i] - observedFreq[i].toDouble(), 2.0
+                        )) / expectedFreq2[i].toDouble()
+                        Log.d(TAG, "Main: ${(pow(
+                            expectedFreq2[i] - observedFreq[i].toDouble(), 2.0
+                        )) / expectedFreq2[i].toDouble()} ")
+                    }
+//                    expectedFreq2
+//                        .zip(observedFreq) { expected, observed ->
+//                            if (observed == 0)
+//                                return@zip
+//                            pAlpha += (pow(
+//                                expected - observed.toDouble(),
+//                                2.0
+//                            )) / observed.toDouble()
+//                        }
+                    "bins:\n${bins.map { String.format("%.2f", it) }} \n".plus("observedFreq:\n${
+                        observedFreq.map {
+                            String.format(
+                                "%.2f", it.toDouble()
+                            )
+                        }
+                    } \n")
+//                        .plus("expectedFreq (Library):\n${
+//                        expectedFreq.map {
+//                            String.format(
+//                                "%.2f", it
+//                            )
+//                        }
+//                    } \n")
+                        .plus("expectedFreq:\n${
+                            expectedFreq2.map {
+                                String.format(
+                                    "%.2f", it
+                                )
+                            }
+                        } \n")
                         .plus(
-                            "expectedFreq (Mine impl): ${
-                                expectedFreq2.mapIndexed { index, it ->
-                                    if (index == 0)
-                                        it.toString()
-                                    else if (index == expectedFreq2.size - 1)
-                                        it.toString()
-                                    else
-                                        (it - expectedFreq2[index - 1]).toString()
-                                }
-                            } \n"
+                            "pAlpha: $pAlpha \n"
                         )
-                },
-                modifier = modifier
+                        .plus("alpha for n = ${k - 2}: 11.1\n")
+                        .plus("is valid? ${if (pAlpha < 15.5) "H0 is valid" else "H0 is invalid"}")
+                }, modifier = modifier
             )
         }
         item {
@@ -157,10 +189,8 @@ fun Main(
         item {
             Text(
                 text = run {
-                    "poisson random value generation (lambda = " +
-                            "${viewModel.generator.lambda})"
-                },
-                modifier = modifier
+                    "poisson random value generation\n"
+                }, modifier = modifier
             )
             Text(
                 text = run {
@@ -169,17 +199,10 @@ fun Main(
                         mean += it
                     }
                     mean /= poissonList.size
-                    "generated list is "
-                        .plus(
-                            poissonList.map { it.toString() }.toString()
-                        )
-                        .plus("\n mean is ").plus(mean)
-                        .plus(
-                            "\n with lambda equal " +
-                                    "${viewModel.generator.lambda}"
-                        )
-                },
-                modifier = modifier
+                    "mean is ".plus(mean).plus(
+                        "\n with lambda equal " + "${viewModel.generator.lambda} \n"
+                    )
+                }, modifier = modifier
             )
             Text(
                 text = run {
@@ -199,40 +222,95 @@ fun Main(
                         0
                     }
                     poissonList.forEach { poissonVal ->
-                        bins.indices.filter { it != k - 1 }.forEach { index ->
-                            if (poissonVal >= bins[index] && poissonVal < bins[index + 1]) {
+                        bins.indices.forEach { index ->
+                            if (index == bins.size - 1) {
+                                if (poissonVal >= bins[index])
+                                    observedFreq[index]++
+                            } else if (poissonVal >= bins[index] && poissonVal < bins[index + 1]) {
                                 observedFreq[index]++
                             }
                         }
                     }
-                    val expectedFreq =
-                        DoubleArray(observedFreq.size) { 0.0 }
-                    for (i in expectedFreq.indices.filter { it != expectedFreq.size - 1 }) {
+                    val expectedFreq = DoubleArray(observedFreq.size) { 0.0 }
+                    for (i in expectedFreq.indices) {
                         val lowerBound = bins[i]
-                        val upperBound = bins[i + 1]
-                        expectedFreq[i] = exponentialList.size *
-                                (PoissonDistribution(mean)
-                                    .cumulativeProbability(upperBound) -
-                                        PoissonDistribution(mean)
-                                            .cumulativeProbability(lowerBound))
+                        val upperBound: Int
+                        if (i != expectedFreq.size - 1)
+                            upperBound = bins[i + 1]
+                        else
+                            upperBound = poissonList.max()
+                        expectedFreq[i] =
+                            exponentialList.size * (PoissonDistribution(mean).cumulativeProbability(
+                                upperBound
+                            ) - PoissonDistribution(mean).cumulativeProbability(lowerBound))
                     }
-                    val expectedFreq2 =
-                        DoubleArray(observedFreq.size) { 0.0 }
-                    for (i in expectedFreq2.indices.filter { it != expectedFreq.size - 1 }) {
-                        expectedFreq2[i] = run {
-                            var expected = 0.0
-                            for (j in bins[i]..<bins[i + 1]) {
-                                expected += lambda.pow(j) * exp(-1.0 * lambda) / factorial(j) * exponentialList.size
+                    val expectedFreq2 = DoubleArray(observedFreq.size) { 0.0 }
+                    for (i in expectedFreq2.indices) {
+                        if (i != expectedFreq2.size - 1)
+                            expectedFreq2[i] = run {
+                                var expected = 0.0
+                                for (j in bins[i]..<bins[i + 1]) {
+                                    expected += lambda.pow(j) * exp(-1.0 * lambda) / factorial(j) * exponentialList.size
+                                }
+                                expected
                             }
-                            expected
+                        else {
+                            expectedFreq2[i] = run {
+                                var expected = 0.0
+                                for (j in bins[i]..poissonList.max()) {
+                                    expected += lambda.pow(j) * exp(-1.0 * lambda) / factorial(j) * exponentialList.size
+                                }
+                                expected
+                            }
                         }
                     }
-                    "bins: ${bins.map { it.toString() }} \n"
-                        .plus("observedFreq: ${observedFreq.map { it.toString() }} \n")
-                        .plus("expectedFreq (Library): ${expectedFreq.map { it.toString() }} \n")
-                        .plus("expectedFreq (Mine impl): ${expectedFreq2.map { it.toString() }} \n")
-                },
-                modifier = modifier
+                    var pAlpha = 0.0
+                    for (i in 0 .. expectedFreq2.size - 1) {
+                        Log.d(
+                            TAG, "$i: ${
+                                (pow(
+                                    expectedFreq2[i] - observedFreq[i].toDouble(), 2.0
+                                )) / expectedFreq2[i].toDouble()
+                            }"
+                        )
+                        pAlpha += (pow(
+                            expectedFreq2[i] - observedFreq[i].toDouble(), 2.0
+                        )) / expectedFreq2[i].toDouble()
+                    }
+                    "bins: ${
+                        bins.map {
+                            String.format(
+                                "%.2f",
+                                it.toDouble()
+                            )
+                        }
+                    } \n".plus("observedFreq: ${
+                        observedFreq.map {
+                            String.format(
+                                "%.2f", it.toDouble()
+                            )
+                        }
+                    } \n")
+//                        .plus("expectedFreq (Library): ${
+//                            expectedFreq.map {
+//                                String.format(
+//                                    "%.2f", it
+//                                )
+//                            }
+//                        } \n")
+                        .plus("expectedFreq: ${
+                            expectedFreq2.map {
+                                String.format(
+                                    "%.2f", it
+                                )
+                            }
+                        } \n")
+                        .plus(
+                            "pAlpha: $pAlpha \n"
+                        )
+                        .plus("alpha for n = ${k - 2}: 11.1\n")
+                        .plus("is valid? ${if (pAlpha < 15.5) "H0 is valid" else "H0 is invalid"}")
+                }, modifier = modifier
             )
         }
     }
